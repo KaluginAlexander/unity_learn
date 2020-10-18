@@ -8,7 +8,7 @@ public class Player : MonoBehaviour
 
     public Rigidbody2D rb;
     public float idleSpeed;
-    public float swimSpeed;
+    public float swimSpeed, onBonusSpeed;
     float speed;
     public float jumpHeight;
     public Transform groundCheck;
@@ -17,6 +17,8 @@ public class Player : MonoBehaviour
     int curHP;
     int maxHP = 3;
     bool isHit = false;
+    bool canHit = true;
+    bool isBonusesSpeed;
     float onHitDelay = 0.01f;
     public Main main;
     public bool haveKey = false;
@@ -24,17 +26,21 @@ public class Player : MonoBehaviour
     public bool isSwim;
     bool climb = false;
     public int coins = 0;
+    public GameObject speedHUD, unhitHUD;
+    public float bonusCooldown;
+    SoundEffector se;
 
     // Start is called before the first frame update
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         anim = GetComponent<Animator>();
+        se = GetComponent<SoundEffector>();
         speed = idleSpeed;
 
         curHP = maxHP;
     }
-      
+
     // Update is called once per frame
     void Update()
     {
@@ -72,7 +78,7 @@ public class Player : MonoBehaviour
             if (coll.tag == "Enemy" || coll.tag == "LadderDown")
             {
                 enemys = 100;
-            } 
+            }
         }
 
         isGrounded = colliders.Length - enemys > 1;
@@ -86,7 +92,7 @@ public class Player : MonoBehaviour
 
     void updateAnimation()
     {
-        if (isSwim){
+        if (isSwim) {
             speed = swimSpeed;
             anim.SetInteger("State", 4);
         }
@@ -100,32 +106,36 @@ public class Player : MonoBehaviour
             anim.SetInteger("State", 1);
 
         else
-        {   
+        {
             if (!isGrounded)
             {
                 anim.SetInteger("State", 2);
             }
-                
+
             else
             {
-                speed = idleSpeed;
+                if (isBonusesSpeed)
+                    speed = onBonusSpeed;
+                else
+                    speed = idleSpeed;
+                    
                 anim.SetInteger("State", 3);
             }
-                
+
         }
     }
 
     public void RecountHP(int deltaHP)
     {
 
-        if (deltaHP < 0)
+        if (deltaHP < 0 && canHit)
         {
             StopCoroutine(OnHit());
             isHit = true;
             StartCoroutine(OnHit());
         }
-        
-        if (deltaHP + curHP <= maxHP)
+
+        if (deltaHP + curHP <= maxHP && canHit)
         {
             curHP += deltaHP;
         }
@@ -134,6 +144,7 @@ public class Player : MonoBehaviour
         {
             death();
             Invoke("Lose", 1.5f);
+            se.playLose();
         }
     }
 
@@ -176,6 +187,16 @@ public class Player : MonoBehaviour
             haveKey = true;
         }
 
+        if (collision.gameObject.tag == "Coin")
+        {
+            se.playCoinTake();
+        }
+
+        if (collision.gameObject.tag == "Win")
+        {
+            se.playWin();
+        }
+
     }
 
     public void OnTriggerStay2D(Collider2D collision)
@@ -204,7 +225,7 @@ public class Player : MonoBehaviour
 
                     haveKey = false;
                 }
-                
+
                 else if (fromDoor.isOpen)
                 {
                     if (!isDoorWait)
@@ -216,7 +237,7 @@ public class Player : MonoBehaviour
         }
     }
 
-    
+
     public int getCoins()
     {
         return coins;
@@ -235,4 +256,43 @@ public class Player : MonoBehaviour
             rb.bodyType = RigidbodyType2D.Dynamic;
         }
     }
+
+    public void addHealthEffect()
+    {
+        RecountHP(1);
+    }
+
+    public void addSpeedEffect() {
+        StartCoroutine(StartSpeedBonus());
+    }
+
+
+    IEnumerator StartSpeedBonus()
+    {
+        speedHUD.SetActive(true);
+        isBonusesSpeed = true;
+
+        yield return new WaitForSeconds(bonusCooldown);
+
+        isBonusesSpeed = false;
+        speedHUD.SetActive(false);
+    }
+
+    public void addUnhitEffect()
+    {
+        StartCoroutine(StartUnhitBonus());
+    }
+
+
+    IEnumerator StartUnhitBonus()
+    {
+        unhitHUD.SetActive(true);
+        canHit = false;
+
+        yield return new WaitForSeconds(bonusCooldown);
+
+        canHit = true;
+        unhitHUD.SetActive(false);
+    }
+
 }
